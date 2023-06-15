@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from game import Game
+from player import Player
 from card import CardType, Card
 
 class Rule(ABC):
@@ -29,6 +30,7 @@ class Stacking:
         """
         self.conditions = conditions
         self.stackCount = 0
+        self.enabled = bool(len(conditions))
 
     def apply(self, game: Game) -> None:
         if self.stackCount == 0:
@@ -36,4 +38,30 @@ class Stacking:
                 pass
 
 
+class SlapJacks:
+    """Slap Jacks Rule class"""
 
+    def __init__(self):
+        self.slapped: list[int] = []
+        self.shouldSlap: bool = False
+        self.enabled: bool = False
+
+    def slap(self, player: Player):
+        """When a player slaps the deck"""
+        if self.enabled:
+            if self.shouldSlap:
+                self.slapped.append(player.index)
+            else:
+                player.draw(player.game.deck.deal(2))
+
+    def update(self, game: Game):
+        """Updates whether slaps should occur and penalizes bad slappers"""
+        if len(self.slapped) == game.numPlayers:
+            game.players[self.slapped[-1]].draw(game.deck.deal(2))
+        elif self.slapped:
+            for i, player in enumerate(game.players):
+                if player.index not in self.slapped:
+                    game.players[i].draw(game.deck.deal(2))
+
+        self.slapped = []
+        self.shouldSlap = game.discard.top_sum() == 10

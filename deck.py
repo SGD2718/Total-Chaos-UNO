@@ -16,6 +16,9 @@ class Deck:
         else:
             self.cards = cards
 
+    def __len__(self):
+        return len(self.cards)
+
     def fill(self) -> None:
         """Resets the UNO deck to a full deck:
         19 Blue cards - 0 to 9 (5 rule cards)

@@ -20,6 +20,8 @@ class Player:
         self.hand: list[Card] = [] if hand is None else hand
         self.canJumpIn: bool = False
 
+        self.slapped = False
+
     def __str__(self):
         return self.name
 
@@ -33,7 +35,7 @@ class Player:
         """
         self.hand += cards
 
-    def play(self, cards: Card | list[Card], rules: list[Rule]) -> list[Card]:
+    def play(self, cards: Card | list[Card]) -> list[Card]:
         """
         Plays cards from the player's and
         :param cards: the cards being played
@@ -48,11 +50,13 @@ class Player:
         i: int = 0
         top = self.game.deck.get_top()
 
-        if game.
+        if self.game.discard:
+            return False
 
         while i < len(cards):
-            if cards[0] == self.game.deck.get_top():
-                if
+            if cards[0] == self.game.discard.get_top():
+                pass
+
 
         if isinstance(cards, list):
             for card in cards:
@@ -67,3 +71,6 @@ class Player:
     def get_legal(self, deck, rules: list[Rule]) -> list[list[Card]]:
         pass
 
+    def slap(self):
+        """Slapping for slap jacks"""
+        self.game.slapJacks.slap(self)
