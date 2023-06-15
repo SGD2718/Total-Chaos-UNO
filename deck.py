@@ -1,4 +1,4 @@
-from cards import Card
+from card import Card
 import random
 
 
@@ -49,9 +49,9 @@ class Deck:
 
         random.shuffle(self.cards)
 
-    def draw(self, n: int) -> list[Card]:
+    def deal(self, n: int) -> list[Card]:
         """
-        draw n cards from the top of the deck
+        deals n cards from the top of the deck
         :param n: number of cards to draw
         :return: a list of the cards drawn
         """

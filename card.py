@@ -107,7 +107,12 @@ class Card:
             self.ruleAdditions = set(ruleAdditions)
 
     def __eq__(self, other):
-        return (self.type == other.type) and (self.color == other.color)
+        if isinstance(other, Card):
+            return (self.type == other.type) and (self.color == other.color)
+        elif isinstance(other, str):
+            return self.color.name == other or self.type.name == other
+        else:
+            return False
 
     def __and__(self, other):
         return self.color == other.color or (self.type and other.type)
