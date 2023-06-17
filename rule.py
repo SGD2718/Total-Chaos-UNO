@@ -172,28 +172,33 @@ class MathRules(Rule):
         self.subtraction = subtraction
         self.enabled = addition or subtraction
 
-    def update(self, discard: Deck, player: Player, checkColor: bool = False) -> list[Move]:
+    def update(self, discard: Deck | Card, hand: list[Card] | Player, checkColor: bool = False) -> list[Move]:
         """
         Checks for the possible dos things
-        :param discard:
-        :param player: the player whose hand we're checking
+        :param discard: discard pile or top card
+        :param hand: the player whose hand we're checking or their hand itself
         :param checkColor: whether both cards must match the color of the top card
         :return: list of the pairs of cards in the player's hand that add up to the top card
         """
+        super().update()
 
-        top = discard.get_top()
+        top = discard.get_top() if isinstance(discard, Deck) else discard
         topName = top.type.name
 
         # make sure that the top card is a number card
         if not topName.isdigit():
             return []
 
+        # convert hand to a list of cards
+        if isinstance(hand, Player):
+            hand = hand.hand
+
         # filter the player's hand for number cards
-        numberCards = list(filter(lambda card: card.type.name.isdigit(), player.hand))
+        numberCards = list(filter(lambda card: card.type.name.isdigit(), hand))
 
         # filter the player's hand by color if necessary
         if checkColor:
-            numberCards = list(filter(lambda card: card.color == top.color, player.hand))
+            numberCards = list(filter(lambda card: card.color == top.color, hand))
 
         # cannot do math with <2 cards
         if len(numberCards) < 2:
@@ -246,6 +251,8 @@ class Depleters(Rule):
         :return: the list of possible depleter moves
         """
 
+        super().update()
+
         top = discard.get_top() if isinstance(discard, Deck) else discard
 
         # set up color groups
@@ -283,3 +290,29 @@ class Depleters(Rule):
         return depleters
 
 
+class Revive(Rule):
+    """Slot revive and discard revive: rule cards can be revived"""
+
+    def update(self, *args, **kwargs) -> None:
+        super().update()
+
+
+class DrawToPlay(Rule):
+    """Draw to play"""
+
+    def update(self, *args, **kwargs) -> None:
+        super().update()
+
+
+class SilentSixes(Rule):
+    """Silent Sixes"""
+
+    def update(self, *args, **kwargs) -> None:
+        super().update()
+
+
+class JumpIns(Rule):
+    """Players can jump in out of turn if a card is identical to the top card"""
+
+    def update(self, *args, **kwargs) -> None:
+        super().update()
