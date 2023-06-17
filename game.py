@@ -34,9 +34,11 @@ class Game:
         self.direction: int = 1
 
         # rules
-        self.stack = Stacking(self, [])
-        self.slapJacks = SlapJacks(self)
-        self.swappyRules = SwappyRules(self)
+        self.stack = Stacking(set())
+        self.slapJacks = SlapJacks(self.numPlayers)
+        self.swappyZero = SwappyZero()
+        self.swappySeven = SwappySeven()
+        self.depleters = Depleters()
         self.multiplier = 1
 
         self.legal: list[str] = []
