@@ -18,23 +18,25 @@ class Game:
 
         # draw and discard piles
         self.deck: Deck = Deck()
-        self.discard: Deck = Deck('empty')
+        self.discard: Deck = Deck('empty', maxCards=2)
         self.discard.append(self.deck.deal(1))
         self._discardHeight = 1
 
         # player list
         random.shuffle(players)
-        self.players: list[Player] = [Player(name, self) for name in players]
+        self.players: list[Player] = [Player(name, self, i) for i, name in enumerate(players)]
         self.numPlayers: int = len(players)
 
         for i in range(self.numPlayers):
-            self.players[i].draw(self.deck.deal(7))
+            self.players[i].draw(7)
 
         self.toMove: int = 0
         self.direction: int = 1
 
-        # stacking
-        self.stack = Stacking([])
+        # rules
+        self.stack = Stacking(self, [])
+        self.slapJacks = SlapJacks(self)
+        self.swappyRules = SwappyRules(self)
         self.multiplier = 1
 
         self.legal: list[str] = []
@@ -42,7 +44,6 @@ class Game:
         self.ruleDeck = None
         self.rules = None
 
-        self.slapJacks = SlapJacks()
 
     def next(self):
         """
@@ -54,19 +55,10 @@ class Game:
 
             skip = topType.isSkip
 
-            # swaps
-            if topType == '0' and self.rules['swappy 0']:
-                self.cycle()
-            elif topType == '7' and self.rules['swappy 7']:
-                # TODO: Get input on the player whose hand is stolen
-                self.trade(self.toMove, int(input(f"Pick a number from 0 to {self.numPlayers-1}: ")))
+            self.swappyRules.update()
 
             # slap jacks
-            if self.rules['slap jacks']:
-                self.slapJacks.enabled = True
-                self.slapJacks.update(self)
-            else:
-                self.slapJacks.enabled = False
+            self.slapJacks.update()
 
             # action cards
             if topType.isReverse:
@@ -104,11 +96,12 @@ class Game:
         # update number of cards in the discard pile
         self._discardHeight = len(self.discard)
 
-    def trade(self, player1: int, player2: int):
-        """Swappy 7"""
-        hand1 = self.players[player1].hand
-        self.players[player1].hand = self.players[player2].hand
-        self.players[player2].hand = hand1
+    def reverse(self):
+        """UNO Reverse Card"""
+        self.direction = -self.direction
+
+    def skip(self):
+        self.toMove = (self.toMove + self.direction) % self.numPlayers
 
     def cycle(self):
         """Swappy 0"""
@@ -119,9 +112,9 @@ class Game:
 
         self.players[self.direction].hand = hand0
 
-    def reverse(self):
-        """UNO Reverse Card"""
-        self.direction = -self.direction
+    def trade(self, player1: int, player2: int):
+        """Swappy 7"""
+        tmp = self.players[player1].hand
+        self.players[player1].hand = self.players[player2].hand
+        self.players[player2].hand = tmp
 
-    def skip(self):
-        self.toMove = (self.toMove + self.direction) % self.numPlayers

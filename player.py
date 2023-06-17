@@ -28,12 +28,15 @@ class Player:
     def __int__(self):
         return len(self.hand)
 
-    def draw(self, cards: list[Card]) -> None:
+    def draw(self, cards: list[Card] | int) -> None:
         """
-        draw cards
-        :param cards: the cards to be drawn
+        Draw cards
+        :param cards: the list cards to be drawn or the number of cards to be drawn
         """
-        self.hand += cards
+        if isinstance(cards, list):
+            self.hand += cards
+        else:
+            self.hand += self.game.deck.deal(cards)
 
     def play(self, cards: Card | list[Card]) -> list[Card]:
         """
@@ -56,7 +59,6 @@ class Player:
         while i < len(cards):
             if cards[0] == self.game.discard.get_top():
                 pass
-
 
         if isinstance(cards, list):
             for card in cards:

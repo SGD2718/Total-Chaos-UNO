@@ -1,3 +1,4 @@
+from typing import SupportsIndex
 from card import Card
 import random
 
@@ -5,9 +6,10 @@ import random
 class Deck:
     """UNO Deck class"""
 
-    def __init__(self, cards: list[Card] | str = 'default'):
+    def __init__(self, cards: list[Card] | str = 'default', maxCards: int = 112):
         """UNO Deck class constructor
         :param cards: the cards currently in the deck. Use 'default' for a full deck, 'empty' for an empty deck
+        :param maxCards: maximum number of cards in the deck (for performance)
         """
         if cards == 'default':
             self.fill()
@@ -16,8 +18,16 @@ class Deck:
         else:
             self.cards = cards
 
+        self.maxCards = maxCards
+
     def __len__(self):
         return len(self.cards)
+
+    def __getitem__(self, item: SupportsIndex) -> Card | list[Card]:
+        return self.cards[item]
+
+    def __setitem__(self, key: SupportsIndex, value: Card):
+        self.cards[key] = value
 
     def fill(self) -> None:
         """Resets the UNO deck to a full deck:
@@ -76,6 +86,10 @@ class Deck:
             self.cards += cards
         else:
             self.cards.append(cards)
+
+        # delete bottom cards if there's too many
+        if len(self.cards) > self.maxCards:
+            self.cards = self.cards[-self.maxCards:]
 
     def get_top(self) -> Card | None:
         """

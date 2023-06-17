@@ -39,12 +39,12 @@ class CardType:
         :param isReverse: if the card will reverse the turn order
         """
 
-        self.name = name
-        self.imagePath = imagePath
-        self.isReverse = isReverse
-        self.drawAmount = drawAmount
-        self.isSkip = isSkip
-        self.isWild = isWild
+        self.name: str = name
+        self.imagePath: str = imagePath
+        self.isReverse: bool = isReverse
+        self.drawAmount: int = drawAmount
+        self.isSkip: bool = isSkip
+        self.isWild: bool = isWild
 
     def __str__(self):
         return self.name
@@ -54,6 +54,42 @@ class CardType:
 
     def __and__(self, other):
         return self.isWild or self.name == str(other)
+
+    def __add__(self, other):
+        if self.name.isdigit() and other.name.isdigit():
+            return int(self.name) + int(other.name)
+        else:
+            return None
+
+    def __sub__(self, other):
+        if self.name.isdigit() and other.name.isdigit():
+            return int(self.name) - int(other.name)
+        else:
+            return None
+
+    def __lt__(self, other):
+        if self.name.isdigit() and other.name.isdigit():
+            return int(self.name) < int(other.name)
+        else:
+            return None
+
+    def __gt__(self, other):
+        if self.name.isdigit() and other.name.isdigit():
+            return int(self.name) > int(other.name)
+        else:
+            return None
+
+    def __le__(self, other):
+        if self.name.isdigit() and other.name.isdigit():
+            return int(self.name) <= int(other.name)
+        else:
+            return None
+
+    def __ge__(self, other):
+        if self.name.isdigit() and other.name.isdigit():
+            return int(self.name) >= int(other.name)
+        else:
+            return None
 
 
 class Card:
@@ -107,15 +143,36 @@ class Card:
             self.ruleAdditions = set(ruleAdditions)
 
     def __eq__(self, other):
+        """Determines if 2 cards are identical"""
         if isinstance(other, Card):
-            return (self.type == other.type) and (self.color == other.color)
+            return self.type == other.type and self.color == other.color \
+                and self.ruleAdditions == other.ruleAdditions
         elif isinstance(other, str):
             return self.color.name == other or self.type.name == other
         else:
             return False
 
     def __and__(self, other):
+        """Determines if 2 cards are compatible"""
         return self.color == other.color or (self.type and other.type)
+
+    def __add__(self, other):
+        return self.type + other.type
+
+    def __sub__(self, other):
+        return self.type - other.type
+
+    def __lt__(self, other):
+        return self.type < other.type
+
+    def __gt__(self, other):
+        return self.type > other.type
+
+    def __le__(self, other):
+        return self.type <= other.type
+
+    def __ge__(self, other):
+        return self.type >= other.type
 
     def set_color(self, color: str | CardColor) -> None:
         """
