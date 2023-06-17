@@ -23,6 +23,9 @@ class CardColor:
     def __eq__(self, other):
         return self.name == str(other)
 
+    def __hash__(self):
+        return
+
 
 class CardType:
     """UNO Card Type class"""
@@ -45,6 +48,11 @@ class CardType:
         self.drawAmount: int = drawAmount
         self.isSkip: bool = isSkip
         self.isWild: bool = isWild
+
+    def __hash__(self):
+        if self.name.isdigit():
+            return int(self.name)
+        return 10 + self.isReverse + 2*self.isSkip + 4*self.isWild + 8*self.drawAmount
 
     def __str__(self):
         return self.name
@@ -151,6 +159,15 @@ class Card:
             return self.color.name == other or self.type.name == other
         else:
             return False
+
+    def __str__(self):
+        return f'{self.color.name} {self.type.name}'
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __hash__(self):
+        return hash(self.type) + 128 * ['wild', 'red', 'yellow', 'green', 'blue'].index(self.color.name)
 
     def __and__(self, other):
         """Determines if 2 cards are compatible"""

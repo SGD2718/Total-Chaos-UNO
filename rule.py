@@ -4,6 +4,7 @@ from game import Game
 from deck import Deck
 from card import Card
 from player import Player
+from move import Move
 
 import itertools as itt
 
@@ -45,12 +46,20 @@ class Stacking(Rule):
         self.stackCount = 0
         self.enabled = bool(len(conditions))
 
-    def can_stack(self, discard: Deck, player: Player) -> bool:
+    def can_stack(self, discard: Deck | Card, player: Player) -> bool:
         """Checks whether a player can stack
-        :param discard: the discard pile
+        :param discard: the discard pile or the top card
         :param player: the player in question"""
         # make sure a stack exists
         if self.stackCount and self.enabled:
+
+            # get top card
+            if isinstance(discard, Deck):
+                top = discard.get_top()
+            else:
+                top = discard
+
+            # check hand
             for card in player.hand:
                 if card in self.conditions and (card and discard.get_top()):
                     return True
@@ -83,6 +92,7 @@ class Stacking(Rule):
                 break
 
         if not self.can_stack(discard, player):
+            # TODO: handle case where someone else might jump in and save them
             player.draw(self.stackCount)
             self.stackCount = 0
             return True
@@ -162,7 +172,7 @@ class MathRules(Rule):
         self.subtraction = subtraction
         self.enabled = addition or subtraction
 
-    def update(self, discard: Deck, player: Player, checkColor: bool = False) -> list[tuple[Card, Card] | set[Card, Card]]:
+    def update(self, discard: Deck, player: Player, checkColor: bool = False) -> list[Move]:
         """
         Checks for the possible dos things
         :param discard:
@@ -196,17 +206,80 @@ class MathRules(Rule):
 
         for card1, card2 in itertools.combinations(numberCards, 2):
             if self.addition and card1 + card2 == value:
-                mathPairs.append((card1, card2))
-                mathPairs.append((card2, card1))
+                mathPairs.append(Move({card1, card2}))
             elif self.subtraction and abs(card1 - card2) == value:
                 if value:  # non-zero difference
                     # smaller value below the bigger value for subtraction
-                    mathPairs.append((card1, card2) if card1 < card2 else (card2, card1))
+                    mathPairs.append(Move([card1, card2] if card1 < card2 else [card2, card1]))
                 else:  # both cards have equal value
-                    mathPairs.append({card1, card2})
+                    mathPairs.append(Move({card1, card2}))
         return mathPairs
 
 
 class Depleters(Rule):
     """When you play 9, you can put all you cards that are the same color as the 9 under the 9"""
+
+    class ColorGroup:
+        """a group of cards with of same color"""
+        def __init__(self):
+            self.nines: list[Card] = []
+            self.cards: list[Card] = []
+
+        def to_move(self):
+            return Move(self.cards, top=self.nines)
+
+        def has_nines(self) -> bool:
+            return bool(self.nines)
+
+        def append(self, card: Card):
+            if card == '9':
+                self.nines.append(card)
+            else:
+                self.cards.append(card)
+
+    def update(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> list[Move]:
+        """
+        Gets possible depleter moves
+        :param discard: either the discard pile or the top card
+        :param hand: the player whose hand we are testing, the list of cards that can be used, or the Move being played
+        :param duplicate: whether the nine must be a duplicate of the top card
+        :return: the list of possible depleter moves
+        """
+
+        top = discard.get_top() if isinstance(discard, Deck) else discard
+
+        # set up color groups
+        colorCards: dict[str: Depleters.ColorGroup] = dict()
+
+        isNine: bool = top.type != '9'
+
+        if duplicate and not isNine:
+            return []
+        elif duplicate or not isNine:
+            colorCards[top.color.name] = Depleters.ColorGroup()
+        else:
+            colorCards = {
+                'red': Depleters.ColorGroup(),
+                'yellow': Depleters.ColorGroup(),
+                'green': Depleters.ColorGroup(),
+                'blue': Depleters.ColorGroup()
+            }
+
+        # convert hand to a list of Cards
+        if isinstance(hand, Player):
+            hand = hand.hand
+
+        # filter cards by color
+        for card in hand:
+            if card != 'wild' and card.color in colorCards:
+                colorCards[card.color.name].append(card)
+
+        # get valid depleter moves
+        depleters: list[Move] = []
+        for _, group in colorCards:
+            if group.has_nines():
+                depleters.append(group.to_move())
+
+        return depleters
+
 
