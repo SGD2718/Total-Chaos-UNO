@@ -209,6 +209,13 @@ class Card:
                     raise ValueError(f"'{color}' is not a valid card color. Valid card colors include 'wild', 'red', "
                                      f"'yellow', 'green', and 'blue'")
 
+    def is_dupe(self, other):
+        """
+        similar to Card == other, but ignores ruleAdditions
+        other: another Card
+        """
+        return self.type == other.type and self.color == other.color
+
     def set_type(self, cardType: str | CardType) -> None:
         """
         Sets the card's type

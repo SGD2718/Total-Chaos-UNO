@@ -6,6 +6,10 @@ from card import Card
 from player import Player
 from move import Move
 
+# for silent sixes to detect talking
+import tensorflow as tf
+from tensorflow import keras
+
 import itertools as itt
 
 
@@ -46,10 +50,13 @@ class Stacking(Rule):
         self.stackCount = 0
         self.enabled = bool(len(conditions))
 
-    def can_stack(self, discard: Deck | Card, player: Player) -> bool:
-        """Checks whether a player can stack
+    def can_stack(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> bool:
+        """
+        Checks whether a player can stack
         :param discard: the discard pile or the top card
-        :param player: the player in question"""
+        :param hand: the player in question or their hand
+        :param duplicate: if the card must be a duplicate (for jump-ins)
+        """
         # make sure a stack exists
         if self.stackCount and self.enabled:
 
@@ -59,9 +66,20 @@ class Stacking(Rule):
             else:
                 top = discard
 
-            # check hand
-            for card in player.hand:
-                if card in self.conditions and (card and discard.get_top()):
+            if isinstance(hand, Player):
+                hand = hand.hand
+
+            # check hand for card that can stack
+            for card in hand:
+                if duplicate:
+                    if card.is_dupe(top):
+                        return True
+                elif "same" in self.conditions and card.type.drawAmount > 0:
+                    # when +2s on +4s and vise versa are not allowed
+                    if card.type == top.type:
+                        return True
+                elif card in self.conditions and (card and top):
+                    # card is stackable, and it can go on the top card
                     return True
         return False
 
@@ -92,12 +110,18 @@ class Stacking(Rule):
                 break
 
         if not self.can_stack(discard, player):
-            # TODO: handle case where someone else might jump in and save them
-            player.draw(self.stackCount)
-            self.stackCount = 0
+            # TODO: handle case where someone else might jump in and save them.
             return True
 
         return False
+
+    def flush(self, player: Player) -> None:
+        """
+        empties the stack and makes the player draw
+        :param player: the unfortunate player who must draw every card in the stack
+        """
+        player.draw(self.stackCount)
+        self.stackCount = 0
 
 
 class SlapJacks(Rule):
