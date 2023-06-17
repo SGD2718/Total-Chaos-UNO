@@ -49,16 +49,23 @@ class Deck:
         colors = ['red', 'yellow', 'green', 'blue']
         actionCards = ['reverse', 'skip', 'draw 2'] * 2
 
+        ruleIndices = random.sample(range(0, 72), 20)
+        numbers = [0] + list(range(1, 9)) * 2 + [9]
+        index = 0
+
         for color in colors:
             for cardType in actionCards:
                 self.cards.append(Card(color, cardType, 0))
 
             self.cards.append(Card(color, 0, 2))
+            self.cards.append(Card(color, 9, 0))
 
-            ruleIndices = random.sample(range(1, 10), 4)
-            for i in range(1, 10):
-                self.cards.append(Card(color, i, 0))
-                self.cards.append(Card(color, i, int(i in ruleIndices)))
+            for i in numbers:
+                if index in ruleIndices:
+                    self.cards.append(Card(color, i, 2 if i == 0 else 1))
+                else:
+                    self.cards.append(Card(color, i, 0))
+                index += 1
 
         random.shuffle(self.cards)
 
