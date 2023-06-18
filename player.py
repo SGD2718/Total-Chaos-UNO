@@ -1,10 +1,23 @@
+"""
+Total Chaos UNO Player class implementation
+
+Contains the Player class.
+"""
+
 from card import Card
 from rule import Rule
 from game import Game
 
 
 class Player:
-    """UNO Player class"""
+    """
+    UNO Player class
+
+    :ivar name: The player's name
+    :ivar game: The UNO game the player belongs to
+    :ivar index: The player's index in the turn order
+    :ivar hand: The list of card in the player's hand
+    """
 
     def __init__(self, name: str, game: Game, index: int, hand: list[Card] = None):
         """
@@ -12,7 +25,7 @@ class Player:
         :param name: player's name
         :param index: the player's turn order number
         :param game: the game of UNO the player is playing
-        :param hand: the player's cards
+        :param hand: (optional) the player's cards
         """
         self.game: Game = game
         self.name: str = name
@@ -30,7 +43,7 @@ class Player:
 
     def draw(self, cards: list[Card] | int) -> None:
         """
-        Draw cards
+        Draw cards from deck
         :param cards: the list cards to be drawn or the number of cards to be drawn
         """
         if isinstance(cards, list):
@@ -40,9 +53,12 @@ class Player:
 
     def play(self, cards: Card | list[Card]) -> list[Card]:
         """
-        Plays cards from the player's and
-        :param cards: the cards being played
+        Plays cards from the player's hand
+        :param cards: the card(s) being played
         """
+        # TODO: change this to work with move chain
+        # TODO: make player able to change color when wild card is placed
+        # TODO: get legal moves
 
         # convert cards to list
         if isinstance(cards, Card):
@@ -52,9 +68,6 @@ class Player:
 
         i: int = 0
         top = self.game.deck.get_top()
-
-        if self.game.discard:
-            return False
 
         while i < len(cards):
             if cards[0] == self.game.discard.get_top():
@@ -73,6 +86,22 @@ class Player:
     def get_legal(self, deck, rules: list[Rule]) -> list[list[Card]]:
         pass
 
-    def slap(self):
-        """Slapping for slap jacks"""
+    def slap(self) -> None:
+        """Slap the deck for slap jacks"""
         self.game.slapJacks.slap(self)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -14,7 +14,11 @@ import itertools as itt
 
 
 class Rule(ABC):
-    """Total Chaos UNO Rule"""
+    """
+    Total Chaos UNO Rule
+
+    :ivar bool enabled = False: whether the rule is enabled
+    """
 
     def __init__(self):
         """
@@ -34,10 +38,16 @@ class Rule(ABC):
 class Stacking(Rule):
     """
     All Stacking Rules:
-    delayed blast: you can pass on an attack with a skip
-    no u: you can give an attack back to the previous player with a reverse
-    normal stacking: +2 can be added to a +2, +4 can be added to +4
-    total chaos stacking: +4 and +2 cards can be added on top of each other.
+    Delayed blast: you can pass on an attack with a skip
+    No U: you can give an attack back to the previous player with a reverse
+    Normal stacking: +2 can be added to a +2, +4 can be added to +4
+    Total chaos stacking: +4 and +2 cards can be added on top of each other.
+
+    :ivar set[str] conditions: list of conditions that allow a card to stack. Conditions include colors (``'wild',
+    'red', 'yellow', 'green', 'blue'``), card types (digits 0-9, ``'reverse', 'skip', 'draw 2', 'wild draw 4',
+    'wild'``), and ``'same'`` (+2 on +2, +4 on +4, but no +4 on +2 and vise versa)
+    :ivar bool enabled: whether stacking is enabled
+    :ivar int stackCount: number of cards that will be drawn when the stack ends
     """
 
     def __init__(self, conditions: set[str]):
@@ -87,9 +97,9 @@ class Stacking(Rule):
         """
         update stacking
         :param discard: discard pile
-        :param cardsPlayed:
-        :param player:
-        :return: returns True if the player drew, False otherwise
+        :param cardsPlayed: number of cards played last turn
+        :param player: player receiving the attack
+        :return: returns True if the player can stack, False otherwise
         """
         self.enabled = bool(len(self.conditions))
         super().update()
@@ -109,10 +119,10 @@ class Stacking(Rule):
                 self.stackCount = 0
                 break
 
-        if not self.can_stack(discard, player):
-            # TODO: handle case where someone else might jump in and save them.
+        if self.can_stack(discard, player):
             return True
 
+        # TODO: handle case where someone else might jump in and save them.
         return False
 
     def flush(self, player: Player) -> None:
@@ -125,8 +135,15 @@ class Stacking(Rule):
 
 
 class SlapJacks(Rule):
-    """When the top 2 cards add up to 10: everyone must slap the discard pile. The last player to do so draws 2 cards.
-    Players who slap incorrectly or fail to slap are also penalized 2 cards."""
+    """
+    When the top 2 cards add up to 10, everyone must slap the discard pile. The last player to do so draws 2 cards.
+    Players who slap incorrectly or fail to slap are also penalized 2 cards.
+
+    :ivar int numPlayers: number of players in the game
+    :ivar list[int] slapped: list of the indices of the players who have slapped
+    :ivar bool shouldSlap: if the players should slap the deck
+    :ivar bool enabled: if the rule is enabled
+    """
 
     def __init__(self, numPlayers: int):
         super().__init__()
@@ -134,15 +151,18 @@ class SlapJacks(Rule):
         self.slapped: list[int] = []
         self.shouldSlap: bool = False
 
-    def slap(self, player: Player):
-        """When a player slaps the deck"""
+    def slap(self, player: Player) -> None:
+        """
+        Call when a player slaps the deck
+        :param player: the player who slapped
+        """
         if self.enabled:
             if self.shouldSlap:
                 self.slapped.append(player.index)
             else:
                 player.draw(2)
 
-    def update(self, discard: Deck, players: list[Player]):
+    def update(self, discard: Deck, players: list[Player]) -> None:
         """
         Updates whether slaps should occur and penalizes bad slappers
         :param discard: the discard pile
@@ -165,18 +185,35 @@ class SlapJacks(Rule):
 
 
 class SwappyZero(Rule):
-    """When someone plays a 0, everyone passes their hand to the next player"""
+    """
+    When someone plays a 0, everyone passes their hand to the next player
+
+    :ivar bool enabled: if swappy 0 is enabled
+    """
 
     def update(self, game: Game) -> None:
+        """
+        Checks if a zero was played and cycles everyone's hand if so
+        :param game: the game of UNO being played
+        """
         super().update()
         if game.discard.get_top().type == '0':
             game.cycle()
 
 
 class SwappySeven(Rule):
-    """Swappy 7"""
+    """
+    When someone plays a 7, they pick someone to trade hands with.
+
+    :ivar bool enabled: if swappy 7 is enabled
+    """
 
     def update(self, game: Game) -> None:
+        """
+        Check if the top card is a 7 and have the player pick a player to trade hands with if so
+        :param game: UNO Game being played
+        """
+        super().update()
         if game.discard.get_top().type == '7':
             # TODO: Implement method to choose someone's hand to take
             game.trade(game.toMove, int(input("Who's hand do you want? ")))
@@ -198,7 +235,7 @@ class MathRules(Rule):
 
     def update(self, discard: Deck | Card, hand: list[Card] | Player, checkColor: bool = False) -> list[Move]:
         """
-        Checks for the possible dos things
+        Checks for the possible math moves
         :param discard: discard pile or top card
         :param hand: the player whose hand we're checking or their hand itself
         :param checkColor: whether both cards must match the color of the top card
@@ -246,21 +283,41 @@ class MathRules(Rule):
 
 
 class Depleters(Rule):
-    """When you play 9, you can put all you cards that are the same color as the 9 under the 9"""
+    """
+    When you play 9, you can put all you cards that are the same color as the 9 under the 9
+
+    :cvar class ColorGroup: A group of cards with of same color for a depleter. Assumes the cards are all the same color
+    :ivar bool enabled: whether depleters are enabled
+    """
 
     class ColorGroup:
-        """a group of cards with of same color"""
+        """
+        A group of cards with of same color for a depleter. Assumes the cards are all the same color.
+
+        :ivar list[Card] nines = []: list of nine-cards
+        :ivar list[Card] cards = []: list of other cards
+        """
         def __init__(self):
             self.nines: list[Card] = []
             self.cards: list[Card] = []
 
-        def to_move(self):
+        def to_move(self) -> Move:
+            """
+            :return: Casts to `Move` object
+            """
             return Move(self.cards, top=self.nines)
 
         def has_nines(self) -> bool:
+            """
+            :return: ``True`` if the color group has at least 1 nine card, ``False`` otherwise.
+            """
             return bool(self.nines)
 
-        def append(self, card: Card):
+        def append(self, card: Card) -> None:
+            """
+            Appends a card to the group
+            :param card: the card being added
+            """
             if card == '9':
                 self.nines.append(card)
             else:
@@ -315,28 +372,41 @@ class Depleters(Rule):
 
 
 class Revive(Rule):
-    """Slot revive and discard revive: rule cards can be revived"""
+    """
+    Slot revive: rule cards can be revived from a slot
+    Discard revive: rule cards can be revived from the discard pile
+    """
 
     def update(self, *args, **kwargs) -> None:
         super().update()
 
 
 class DrawToPlay(Rule):
-    """Draw to play"""
+    """
+    Players must draw until they can play a card.
+    """
 
     def update(self, *args, **kwargs) -> None:
         super().update()
 
 
 class SilentSixes(Rule):
-    """Silent Sixes"""
+    """
+    When a 6 is played, silent mode is toggled. In silent mode, players will face a 2-card penalty each time they
+    talk, even if calling uno.
+
+    Will probably use microphone + voice isolation + volume threshold to determine when someone is talking.
+    """
 
     def update(self, *args, **kwargs) -> None:
         super().update()
 
 
 class JumpIns(Rule):
-    """Players can jump in out of turn if a card is identical to the top card"""
+    """
+    Players can jump in out of turn with a card is identical to the top card.
+    After jumping in, the play will continue from that player.
+    """
 
     def update(self, *args, **kwargs) -> None:
         super().update()
