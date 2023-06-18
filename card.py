@@ -2,7 +2,12 @@ from typing import Iterable
 
 
 class CardColor:
-    """UNO Card Color class"""
+    """
+    UNO Card Color class
+
+    :ivar str name: name of the color
+    :ivar str hex: hex color code of the card in the UI
+    """
 
     def __init__(self, name: str, color: str | Iterable[int, int, int] | Iterable[int, int, int, int]):
         """
@@ -28,7 +33,16 @@ class CardColor:
 
 
 class CardType:
-    """UNO Card Type class"""
+    """
+    UNO Card Type class
+
+    :ivar name: name of the card type
+    :ivar imagePath: card image file path
+    :ivar drawAmount: number of cards the next player must draw
+    :ivar isWild: if the card is a wildcard
+    :ivar isSkip: if the card will skip the next player
+    :ivar isReverse: if the card will reverse the turn order
+    """
 
     def __init__(self, name: str, drawAmount: int = 0, isWild: bool = False, isSkip: bool = False,
                  isReverse: bool = False, imagePath: str = None):
@@ -103,6 +117,13 @@ class CardType:
 class Card:
     """
     UNO Card Class
+
+    :cvar dict[str, CardColor] COLORS: maps color names to the corresponding card colors
+    :cvar dict[str, CardType] ACTION_CARDS: maps type names to the corresponding action card type
+
+    :ivar CardColor color: card color
+    :ivar CardType type: card type
+    :ivar int ruleAdditions: number of rules the player can add after playing this card
     """
 
     # static class attributes

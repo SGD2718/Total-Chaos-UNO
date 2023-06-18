@@ -3,8 +3,11 @@ from card import *
 
 class Move:
     """
-    A move in Total Chaos UNO.
-    Structured like a sandwich
+    A move in Total Chaos UNO. Structured like a sandwich
+
+    :ivar list[Card] bottom: one of the cards in this list must go first
+    :ivar list[Card] middle: intermediate cards
+    :ivar list[Card] top: one of the cards in this list must go last.
     """
 
     def __init__(self,
@@ -72,7 +75,11 @@ class Move:
 
 
 class MoveChain:
-    """Chain of moves played as 1 move due to jump-ins and stuff in Total Chaos UNO"""
+    """
+    Chain of moves played as 1 move due to jump-ins and stuff in Total Chaos UNO
+
+    :ivar list[Move] moves: the moves played in the chain
+    """
 
     def __init__(self, moves: list[Move]):
         self.moves: list[Move] = moves
