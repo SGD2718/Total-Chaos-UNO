@@ -17,9 +17,9 @@ class Game:
         """
 
         # draw and discard piles
-        self.deck: Deck = Deck()
+        self.drawPile: Deck = Deck()
         self.discard: Deck = Deck('empty', maxCards=2)
-        self.discard.append(self.deck.deal(1))
+        self.discard.append(self.drawPile.deal(1))
         self._discardHeight = 1
 
         # player list
@@ -34,18 +34,32 @@ class Game:
         self.direction: int = 1
 
         # rules
-        self.stack = Stacking(set())
+        self.stacking = Stacking(set())
         self.slapJacks = SlapJacks(self.numPlayers)
         self.swappyZero = SwappyZero()
         self.swappySeven = SwappySeven()
         self.depleters = Depleters()
-        self.multiplier = 1
+        self.attackMultiplier = AttackMultiplier()
+        self.drawToPlay = DrawToPlay()
+        self.revives = Revive()
+        self.jumpIns = JumpIns()
+        self.mathRules = MathRules()
+        self.silentSixes = SilentSixes()
 
-        self.legal: list[str] = []
-
-        self.ruleDeck = None
-        self.rules = None
-
+        self.ruleDeck = []
+        self.rules = {
+            'stacking': self.stacking,
+            'slap jacks': self.slapJacks,
+            'swappy zero': self.swappyZero,
+            'swappy seven': self.swappySeven,
+            'depleters': self.depleters,
+            'attack multiplier': self.attackMultiplier,
+            'draw to play': self.drawToPlay,
+            'revives': self.revives,
+            'jump ins': self.jumpIns,
+            'math': self.mathRules,
+            'silent sixes': self.silentSixes
+        }
 
     def next(self):
         """
@@ -55,12 +69,15 @@ class Game:
             top = self.discard.get_top()
             topType = top.type
 
-            skip = topType.isSkip
+            self.stacking.update(self.drawPile, len(self.discard) - self._discardHeight)
 
-            self.swappyRules.update()
+            skip = topType.isSkip and not (bool(self.stacking) and self.stacking.stackCount)
+
+            self.swappyZero.update(self)
+            self.swappySeven.update(self)
 
             # slap jacks
-            self.slapJacks.update()
+            self.slapJacks.update(self.drawPile, self.players)
 
             # action cards
             if topType.isReverse:
@@ -71,24 +88,6 @@ class Game:
 
             self.skip()  # next player
 
-            # draw cards
-            if top.type.drawAmount > 0:
-                self.stack.stackCount += topType.drawAmount
-
-            # stacking
-            if self.stack.stackCount:
-                canStack = False
-                for card in self.players[self.toMove].hand:
-                    if card in self.stack.conditions and (card and top):
-                        canStack = True
-                        break
-                if canStack:
-                    # let the player continue the stack
-                    skip = False
-                else:
-                    # draw however many cards the stack requires * the multiplier
-                    self.players[self.toMove].draw(self.deck.deal(self.stack.stackCount*self.multiplier))
-
             # skips
             if skip:
                 self.skip()
@@ -97,6 +96,10 @@ class Game:
 
         # update number of cards in the discard pile
         self._discardHeight = len(self.discard)
+
+    def draw(self):
+        """Player draws cards from deck after clicking on the deck"""
+        self.stacking.flush(self.players[self.toMove], self.attackMultiplier)
 
     def reverse(self):
         """UNO Reverse Card"""

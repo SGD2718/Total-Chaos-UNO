@@ -26,16 +26,55 @@ class Rule(ABC):
         """
         self.enabled: bool = False
 
+    def __bool__(self) -> bool:
+        """Rule.__bool__() <==> bool(rule)
+        :return Returns True if the rule is enabled, False if not"""
+        return self.enabled
+
+
+class MoveRule(Rule, ABC):
+    """
+    A rule that affects what cards are playable
+    """
+
+    @abstractmethod
+    def get_moves(self, discard: Deck | Card, hand: list[Card] | Player, duplicate: bool = False) -> list[Move]:
+        """
+        :param discard: discard pile or the top card
+        :param hand: the list of cards to choose from or the player that owns them
+        :param duplicate: if the card must be a duplicate of the top card (for jump-ins)
+        :return: list of additional moves that this rule allows
+        """
+        raise NotImplementedError
+
+
+class ActionRule(Rule, ABC):
+    """
+    A rule that affects actions in the game
+    """
+
     @abstractmethod
     def update(self, *args, **kwargs) -> None:
         """
         Applies the rule, if applicable
         """
-        if not self.enabled:
-            return
+        raise NotImplementedError
 
 
-class Stacking(Rule):
+class AttackMultiplier(Rule):
+    """
+    Multiplies the effect of draw cards.
+
+    :ivar float multiplier: how much to multiply the effect of draw cards
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.multiplier: float = 1
+        self.enabled = True
+
+
+class Stacking(MoveRule, ActionRule):
     """
     All Stacking Rules:
     Delayed blast: you can pass on an attack with a skip
@@ -60,16 +99,16 @@ class Stacking(Rule):
         self.stackCount = 0
         self.enabled = bool(len(conditions))
 
-    def can_stack(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> bool:
+    def get_moves(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> list[Move]:
         """
         Checks whether a player can stack
         :param discard: the discard pile or the top card
         :param hand: the player in question or their hand
         :param duplicate: if the card must be a duplicate (for jump-ins)
+        :return: list of moves that could add to the stack
         """
         # make sure a stack exists
         if self.stackCount and self.enabled:
-
             # get top card
             if isinstance(discard, Deck):
                 top = discard.get_top()
@@ -79,62 +118,79 @@ class Stacking(Rule):
             if isinstance(hand, Player):
                 hand = hand.hand
 
-            # check hand for card that can stack
-            for card in hand:
-                if duplicate:
-                    if card.is_dupe(top):
-                        return True
-                elif "same" in self.conditions and card.type.drawAmount > 0:
-                    # when +2s on +4s and vise versa are not allowed
-                    if card.type == top.type:
-                        return True
-                elif card in self.conditions and (card and top):
-                    # card is stackable, and it can go on the top card
-                    return True
+            return list(map(Move, filter(lambda card: self.can_stack(top, card), hand)))
+
+        return []
+
+    def can_stack(self, discard: Deck | Card, card: Card, duplicate: bool = False) -> bool:
+        """
+        Check if card is valid for stacking :param discard: either the discard pile or the card on top :param card:
+        the card in question :param duplicate: whether the card has to be a duplicate of the top card (for jump-ins)
+        :return: True if the card can be played on the stack, False otherwise. If the stack is at 0, then it returns
+        False.
+        """
+
+        if isinstance(discard, Deck):
+            top = discard.get_top()
+        else:
+            top = discard
+
+        if duplicate:
+            if card.is_dupe(top):
+                return True
+        elif card.type.drawAmount > 0:
+            if (card and top) and 'draw any' in self.conditions:  # any valid draw card on a draw card
+                return True
+            elif card.type == top.type and 'draw same' in self.conditions:  # when +2s and +4s cannot mix
+                return True
+        elif card in self.conditions and (card and top):
+            # card is stackable, and it can go on the top card
+            return True
+
         return False
 
-    def update(self, discard: Deck, cardsPlayed: int, player: Player) -> bool:
+    def update(self, discard: Deck, cardsPlayed: int) -> None:
         """
-        update stacking
+        update stack and draw buffer
         :param discard: discard pile
         :param cardsPlayed: number of cards played last turn
-        :param player: player receiving the attack
-        :return: returns True if the player can stack, False otherwise
         """
         self.enabled = bool(len(self.conditions))
-        super().update()
-        # draw cards
+
+        if not self.enabled:
+            return
 
         newCards = discard[-cardsPlayed:]
 
         # add stuff to the stack
         for card in newCards:
-            if card in self.conditions:
+            if self.can_stack(discard, card):
                 self.stackCount += card.type.drawAmount
             else:
                 # the stack was ended because someone did something illegal
                 if self.stackCount > 0:
                     print("Someone did something illegal on a stack")
-
                 self.stackCount = 0
                 break
 
-        if self.can_stack(discard, player):
-            return True
-
-        # TODO: handle case where someone else might jump in and save them.
-        return False
-
-    def flush(self, player: Player) -> None:
+    def flush(self, player: Player, attackMultiplier: float | AttackMultiplier = 1) -> None:
         """
-        empties the stack and makes the player draw
+        Empties the stack and makes the player draw.
+        If the stack is empty, the player draws 1.
         :param player: the unfortunate player who must draw every card in the stack
+        :param attackMultiplier: how much attacks get multiplied
         """
-        player.draw(self.stackCount)
+        if self.stackCount:
+            if isinstance(attackMultiplier, AttackMultiplier):
+                attackMultiplier = attackMultiplier.multiplier
+            player.draw(int(round(self.stackCount * attackMultiplier)))
+        else:
+            player.draw(1)
+
         self.stackCount = 0
 
 
-class SlapJacks(Rule):
+class SlapJacks(ActionRule):
     """
     When the top 2 cards add up to 10, everyone must slap the discard pile. The last player to do so draws 2 cards.
     Players who slap incorrectly or fail to slap are also penalized 2 cards.
@@ -168,7 +224,10 @@ class SlapJacks(Rule):
         :param discard: the discard pile
         :param players: the list of players in the game
         """
-        super().update()
+
+        if not self.enabled:
+            return
+
         # everyone slapped
         if len(self.slapped) == self.numPlayers:
             # punish last player to slap
@@ -184,7 +243,7 @@ class SlapJacks(Rule):
         self.shouldSlap = discard.top_sum() == 10
 
 
-class SwappyZero(Rule):
+class SwappyZero(ActionRule):
     """
     When someone plays a 0, everyone passes their hand to the next player
 
@@ -196,12 +255,12 @@ class SwappyZero(Rule):
         Checks if a zero was played and cycles everyone's hand if so
         :param game: the game of UNO being played
         """
-        super().update()
-        if game.discard.get_top().type == '0':
+
+        if self.enabled and game.discard.get_top().type == '0':
             game.cycle()
 
 
-class SwappySeven(Rule):
+class SwappySeven(ActionRule):
     """
     When someone plays a 7, they pick someone to trade hands with.
 
@@ -213,13 +272,12 @@ class SwappySeven(Rule):
         Check if the top card is a 7 and have the player pick a player to trade hands with if so
         :param game: UNO Game being played
         """
-        super().update()
-        if game.discard.get_top().type == '7':
+        if self.enabled and game.discard.get_top().type == '7':
             # TODO: Implement method to choose someone's hand to take
             game.trade(game.toMove, int(input("Who's hand do you want? ")))
 
 
-class MathRules(Rule):
+class MathRules(MoveRule):
     """Math Rules: you use math to play 2 cards at once"""
 
     def __init__(self, addition: bool = False, subtraction: bool = False):
@@ -233,15 +291,16 @@ class MathRules(Rule):
         self.subtraction = subtraction
         self.enabled = addition or subtraction
 
-    def update(self, discard: Deck | Card, hand: list[Card] | Player, checkColor: bool = False) -> list[Move]:
+    def get_moves(self, discard: Deck | Card, hand: list[Card] | Player, duplicate: bool = False) -> list[Move]:
         """
         Checks for the possible math moves
         :param discard: discard pile or top card
         :param hand: the player whose hand we're checking or their hand itself
-        :param checkColor: whether both cards must match the color of the top card
+        :param duplicate: whether both cards must match the color of the top card
         :return: list of the pairs of cards in the player's hand that add up to the top card
         """
-        super().update()
+        self.enabled = self.addition or self.subtraction
+        super().get_moves(discard, hand)
 
         top = discard.get_top() if isinstance(discard, Deck) else discard
         topName = top.type.name
@@ -258,7 +317,7 @@ class MathRules(Rule):
         numberCards = list(filter(lambda card: card.type.name.isdigit(), hand))
 
         # filter the player's hand by color if necessary
-        if checkColor:
+        if duplicate:
             numberCards = list(filter(lambda card: card.color == top.color, hand))
 
         # cannot do math with <2 cards
@@ -272,17 +331,20 @@ class MathRules(Rule):
 
         for card1, card2 in itertools.combinations(numberCards, 2):
             if self.addition and card1 + card2 == value:
-                mathPairs.append(Move({card1, card2}))
+                mathPairs.append(Move([card1, card2], enforceMatch=True))
             elif self.subtraction and abs(card1 - card2) == value:
                 if value:  # non-zero difference
                     # smaller value below the bigger value for subtraction
-                    mathPairs.append(Move([card1, card2] if card1 < card2 else [card2, card1]))
+                    if card1 < card2:
+                        mathPairs.append(Move(None, bottom=card1, top=card2, enforceMatch=True))
+                    else:
+                        mathPairs.append(Move(None, bottom=card2, top=card1, enforceMatch=True))
                 else:  # both cards have equal value
-                    mathPairs.append(Move({card1, card2}))
+                    mathPairs.append(Move([card1, card2], enforceMatch=True))
         return mathPairs
 
 
-class Depleters(Rule):
+class Depleters(MoveRule):
     """
     When you play 9, you can put all you cards that are the same color as the 9 under the 9
 
@@ -323,7 +385,7 @@ class Depleters(Rule):
             else:
                 self.cards.append(card)
 
-    def update(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> list[Move]:
+    def get_moves(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> list[Move]:
         """
         Gets possible depleter moves
         :param discard: either the discard pile or the top card
@@ -332,7 +394,8 @@ class Depleters(Rule):
         :return: the list of possible depleter moves
         """
 
-        super().update()
+        if not self.enabled:
+            return []
 
         top = discard.get_top() if isinstance(discard, Deck) else discard
 
@@ -370,8 +433,11 @@ class Depleters(Rule):
 
         return depleters
 
+    def update(self, *args, **kwargs) -> None:
+        pass
 
-class Revive(Rule):
+
+class Revive(ActionRule):
     """
     Slot revive: rule cards can be revived from a slot
     Discard revive: rule cards can be revived from the discard pile
@@ -381,7 +447,7 @@ class Revive(Rule):
         super().update()
 
 
-class DrawToPlay(Rule):
+class DrawToPlay(ActionRule):
     """
     Players must draw until they can play a card.
     """
@@ -390,7 +456,7 @@ class DrawToPlay(Rule):
         super().update()
 
 
-class SilentSixes(Rule):
+class SilentSixes(ActionRule):
     """
     When a 6 is played, silent mode is toggled. In silent mode, players will face a 2-card penalty each time they
     talk, even if calling uno.
@@ -399,14 +465,51 @@ class SilentSixes(Rule):
     """
 
     def update(self, *args, **kwargs) -> None:
-        super().update()
+        pass
 
 
-class JumpIns(Rule):
+class JumpIns(MoveRule, ActionRule):
     """
     Players can jump in out of turn with a card is identical to the top card.
     After jumping in, the play will continue from that player.
     """
 
-    def update(self, *args, **kwargs) -> None:
-        super().update()
+    def get_moves(self, discard: Deck | Card, hand: Player | list[Card], duplicate: bool = False) -> list[Move]:
+        """
+        :param discard: Discard pile or the top card
+        :param hand: list of cards to choose from or the player that owns them
+        :param duplicate: whether to apply this rule
+        :return: list of single-card jump-in moves
+        """
+        if not (self.enabled and duplicate):
+            return []
+
+        # hand becomes list of cards
+        if isinstance(hand, Player):
+            hand = hand.hand
+
+        # discard becomes top card
+        if isinstance(discard, Deck):
+            discard = discard.get_top()
+
+        # filter hand for cards that are duplicates of the top card
+        return list(map(Move, filter(lambda card: card.is_dupe(discard), hand)))
+
+    def update(self, player: Player | int, game: Game) -> None:
+        """
+        Call when a player makes a jump-in
+        :param player: the player who performed the jump-in or their turn order index
+        :param game: The game of UNO being played
+        """
+
+        if not self.enabled:
+            return
+
+        if isinstance(player, Player):
+            player = player.index
+
+        game.toMove = player
+        game.next()
+
+
+

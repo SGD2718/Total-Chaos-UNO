@@ -8,20 +8,22 @@ class Move:
     :ivar list[Card] bottom: one of the cards in this list must go first
     :ivar list[Card] middle: intermediate cards
     :ivar list[Card] top: one of the cards in this list must go last.
+    :ivar bool enforceMatch: whether another move must have all the same cards in order to be interchangeable
     """
 
     def __init__(self,
                  middle: Card | list[Card] | set[Card] | None,
                  bottom: Card | list[Card] | set[Card] | None = None,
-                 top: Card | list[Card] | set[Card] | None = None):
+                 top: Card | list[Card] | set[Card] | None = None,
+                 enforceMatch: bool = False):
         """
         UNO Move class constructor
-        :param middle: the cards played in the middle. Use a set if order does not matter, use a list if order matters.
-        Use None if None of the cards must go in the middle
+        :param middle: the cards played in the middle. Use None if None of the cards must go in the middle
         :param bottom: Any one of the cards in this container must be on the bottom, and the rest can go anywhere else.
         Leave as None if any card can go on the bottom.
         :param top: Any one of the cards in this container must be on the top, and the rest can go anywhere else.
         Leave as None if any card can go on top.
+        :param enforceMatch: whether another move must have all the same cards in order to be interchangeable
         """
         if isinstance(middle, Card):
             self.middle: list[Card] = [middle]
@@ -44,26 +46,81 @@ class Move:
         else:
             self.top: list[Card] = []
 
-    def __len__(self):
+        self.enforceMatch = enforceMatch
+
+    def __len__(self) -> int:
         return len(self.bottom) + len(self.middle) + len(self.top)
 
-    def __getitem__(self, item):
-        return self.tolist()[item]
+    def __getitem__(self, index) -> Card:
+        return self.tolist()[index]
 
-    def __eq__(self, other):
+    def __contains__(self, item: Card) -> bool:
+        return item in self.tolist()
+
+    def __eq__(self, other) -> bool:
         """
         other is a Move object
+        :type other: Move
         :return: Returns True if the two moves are the same set, False if not
         """
-        return all([set(getattr(self, layer)) == set(getattr(other, layer)) for layer in ['bottom', 'middle', 'top']])
+        return all([set(getattr(self, layer)) == set(getattr(other, layer)) for layer in ['bottom', 'middle', 'top']]) \
+            and len(self) == len(other)
+
+    def without(self, cards: list[Card], emptyOnInvalid: bool = False):
+        """
+        Copies the move and removes cards from the copy going from bottom to top
+        :param cards: the list of cards to exclude from the move
+        :param emptyOnInvalid: determines whether to return an empty move if a card is not present in the move
+        :return: A version of the move without the cards in cards
+        :rtype: Move
+        """
+        bottom = self.bottom[:]
+        middle = self.middle[:]
+        top = self.top[:]
+
+        for card in cards:
+            if card in bottom:
+                bottom.remove(card)
+            elif card in middle:
+                middle.remove(card)
+            elif card in top:
+                top.remove(card)
+            elif emptyOnInvalid:
+                return Move([], enforceMatch=self.enforceMatch)
+
+        return Move(middle, bottom=bottom, top=top, enforceMatch=self.enforceMatch)
+
+    def first_layer(self) -> list[Card]:
+        """
+        :return: the first non-empty layer in the move
+        """
+        if self.bottom:
+            return self.bottom
+        elif self.middle:
+            return self.middle
+        else:
+            return self.top
 
     def can_replace(self, other) -> bool:
         """
-        Determines if this move is a subset of the other move
-        :return: returns True if the move can replace the other move, False if not
+        Determines if this move is a subset of another ``Move`` object
+        :type other: Move
+        :return: returns ``True`` if the move can replace ``other``, ``False`` if not
         """
-        issubset: bool = self.toset().issubset(other.toset())
-        return issubset and set(self.bottom).issubset(other.bottom) and set(self.top).issubset(other.top)
+
+        # check if the move is a non-empty subset of the other move
+        if self.__len__():
+            if (self.enforceMatch or other.enforceMatch) and \
+                    not (self.toset() == other.toset() and len(self) == len(other)):
+                return False
+            elif not self.toset().issubset(other.toset()):
+                return False
+            # check if top and bottom are subsets or can go in the middle
+            bottomMatches: bool = len(other.bottom) == 0 or set(self.bottom).issubset(other.bottom)
+            topMatches: bool = len(other.top) == 0 or set(self.top).issubset(other.top)
+            return bottomMatches and topMatches
+
+        return False
 
     def tolist(self) -> list[Card]:
         """Cast to list of cards"""
@@ -74,7 +131,7 @@ class Move:
         return set(self.tolist())
 
 
-class MoveChain:
+class MoveChain: # depreciated
     """
     Chain of moves played as 1 move due to jump-ins and stuff in Total Chaos UNO
 
