@@ -4,6 +4,8 @@ from player import Player
 from card import Card
 from deck import Deck
 from rule import *
+from rule_slot import *
+from rule_cards import *
 
 
 class Game:
@@ -34,6 +36,8 @@ class Game:
         self.direction: int = 1
 
         # rules
+        self.totalChaos: bool = eternalChaos
+
         self.stacking = Stacking(set())
         self.slapJacks = SlapJacks(self.numPlayers)
         self.swappyZero = SwappyZero()
@@ -46,7 +50,6 @@ class Game:
         self.mathRules = MathRules()
         self.silentSixes = SilentSixes()
 
-        self.ruleDeck = []
         self.rules = {
             'stacking': self.stacking,
             'slap jacks': self.slapJacks,
@@ -60,6 +63,12 @@ class Game:
             'math': self.mathRules,
             'silent sixes': self.silentSixes
         }
+        self.ruleDeck: list[RuleCard | RuleSlot] = list(self.rules.values()) + [RuleSlot(), RuleSlot(), RuleSlot()]
+        self.ruleDiscard: RuleSlot = RuleSlot([], False)
+        self.ruleSlots: list[RuleSlot] = []
+
+    def reset_rules(self):
+        pass
 
     def next(self):
         """

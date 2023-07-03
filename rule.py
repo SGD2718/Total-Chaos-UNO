@@ -31,6 +31,13 @@ class Rule(ABC):
         :return Returns True if the rule is enabled, False if not"""
         return self.enabled
 
+    def set_active(self, isActive: bool) -> None:
+        """
+        Enables or disables the rule
+        :param isActive:
+        """
+        self.enabled = isActive
+
 
 class MoveRule(Rule, ABC):
     """
@@ -84,7 +91,8 @@ class Stacking(MoveRule, ActionRule):
 
     :ivar set[str] conditions: list of conditions that allow a card to stack. Conditions include colors (``'wild',
     'red', 'yellow', 'green', 'blue'``), card types (digits 0-9, ``'reverse', 'skip', 'draw 2', 'wild draw 4',
-    'wild'``), and ``'same'`` (+2 on +2, +4 on +4, but no +4 on +2 and vise versa)
+    'wild'``), ``'draw any'`` (+2s on +4s and vise versa, if compatible), and ``'draw same'`` (+2 on +2, +4 on +4,
+     but no mixing)
     :ivar bool enabled: whether stacking is enabled
     :ivar int stackCount: number of cards that will be drawn when the stack ends
     """

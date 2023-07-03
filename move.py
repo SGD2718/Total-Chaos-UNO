@@ -131,7 +131,7 @@ class Move:
         return set(self.tolist())
 
 
-class MoveChain: # depreciated
+'''class MoveChain: # depreciated
     """
     Chain of moves played as 1 move due to jump-ins and stuff in Total Chaos UNO
 
@@ -176,6 +176,6 @@ class MoveChain: # depreciated
             asList += move.tolist()
         return asList
 
-
+'''
 
 

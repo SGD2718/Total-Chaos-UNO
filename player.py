@@ -202,19 +202,3 @@ class Player:
     def slap(self) -> None:
         """Slap the deck for slap jacks"""
         self.game.slapJacks.slap(self)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
