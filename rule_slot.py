@@ -83,10 +83,12 @@ class RuleSlot:
         else:
             self.ruleCards.remove(ruleCard)
 
-    def revive(self, ruleCard: RuleCard | int) -> None:
+    def revive(self, ruleCard: RuleCard | int, targetSlot='self') -> None:
         """
         Sets top rule card to something from the middle of the deck.
         :param ruleCard: either the index of the rule card in the slot or the rule card itself to be revived
+        :param targetSlot: slot receiving the revived card. leave as ``'self'`` to make this slot receive the card.
+        :type targetSlot: RuleSlot | str
         """
 
         # get the rule card itself
@@ -95,5 +97,9 @@ class RuleSlot:
 
         # rearrange
         self.ruleCards.remove(ruleCard)
-        self.append(ruleCard)
+
+        if targetSlot == 'self':
+            self.append(ruleCard)
+        else:
+            targetSlot.append(ruleCard)
 

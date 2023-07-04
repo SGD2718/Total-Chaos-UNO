@@ -135,8 +135,13 @@ class Player:
 
         self._legalMoves.clear()
 
-        # normal moves
         if myTurn:
+            # check if we are under attack and need to stack
+            if bool(self.game.stacking) and self.game.stacking.stackCount:
+                self._legalMoves = self.game.stacking.get_moves(top, self.hand, False)
+                return
+
+            # check normal moves
             for card in self.hand:
                 if card and top:
                     self._legalMoves.append(Move(card))

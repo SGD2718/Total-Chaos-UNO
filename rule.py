@@ -223,6 +223,9 @@ class SlapJacks(ActionRule):
         if self.enabled:
             if self.shouldSlap:
                 self.slapped.append(player.index)
+                if len(self.slapped) == self.numPlayers:
+                    # this is the last player to slap, so they draw 2
+                    player.draw(2)
             else:
                 player.draw(2)
 
@@ -236,17 +239,14 @@ class SlapJacks(ActionRule):
         if not self.enabled:
             return
 
-        # everyone slapped
-        if len(self.slapped) == self.numPlayers:
-            # punish last player to slap
-            players[self.slapped[-1]].draw(2)
-        elif self.slapped:
+        if self.slapped and self.shouldSlap:
             # at least one person slapped
             for i, player in enumerate(players):
                 if player.index not in self.slapped:
                     # punish the players who failed to slap
                     players[i].draw(2)
 
+        # reset for next turn
         self.slapped = []
         self.shouldSlap = discard.top_sum() == 10
 
@@ -265,7 +265,7 @@ class SwappyZero(ActionRule):
         """
 
         if self.enabled and game.discard.get_top().type == '0':
-            game.cycle()
+            game.cycle_hands()
 
 
 class SwappySeven(ActionRule):
@@ -282,7 +282,7 @@ class SwappySeven(ActionRule):
         """
         if self.enabled and game.discard.get_top().type == '7':
             # TODO: Implement method to choose someone's hand to take
-            game.trade(game.toMove, int(input("Who's hand do you want? ")))
+            game.trade_hands(game.toMove, int(input("Who's hand do you want? ")))
 
 
 class MathRules(MoveRule):

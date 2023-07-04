@@ -79,9 +79,9 @@ class StackingCard(RuleCard):
     def set_active(self, isActive: bool, slot: RuleSlot, **kwargs) -> None:
         self.isActive = isActive
         if isActive:
-            self._game.rules['stacking'].conditions.add(self.condition)
+            self._game.stacking.conditions.add(self.condition)
         else:
-            self._game.rules['stacking'].conditions.discard(self.condition)
+            self._game.stacking.conditions.discard(self.condition)
 
 
 class MathCard(RuleCard):
@@ -99,10 +99,37 @@ class MathCard(RuleCard):
 
     def set_active(self, isActive: bool, slot: RuleSlot, **kwargs) -> None:
         self.isActive = isActive
-        setattr(self._game.rules['math'], self.operation, isActive)
+        setattr(self._game.mathRules, self.operation, isActive)
 
 
-class ReviveRuleCard(RuleCard):
+class MultiplierCard(RuleCard):
+    """
+    Rule cards for half and double attack
+    :ivar float multiplier: the card's multiplier
+    :ivar str ruleName: name of the rule card
+    :ivar bool isActive: whether the rule is active
+    """
+
+    def __init__(self, game: Game, ruleName: str, multiplier: float, isActive: bool = False):
+        """
+
+        :param game: game of UNO being played.
+        :param ruleName: name of the rule.
+        :param multiplier: rule card attack multiplier.
+        :param isActive: whether this rule card is active.
+        """
+        super().__init__(game, ruleName, isActive)
+        self.multiplier: float = multiplier
+
+    def set_active(self, isActive: bool, slot: RuleSlot, **kwargs) -> None:
+        if isActive and not self.isActive:
+            self._game.attackMultiplier.multiplier *= self.multiplier
+        elif not isActive and self.isActive:
+            self._game.attackMultiplier.multiplier /= self.multiplier
+        self.isActive = isActive
+
+
+class ReviveCard(RuleCard):
     """Rule card for slot and discard revives"""
 
     def __init__(self, game: Game, mode: str = 'slot', isActive: bool = False):
@@ -113,24 +140,16 @@ class ReviveRuleCard(RuleCard):
         :param isActive: whether the rule is active
         """
         super().__init__(game, mode+' revive', isActive)
-        self.isSlotRevive = mode == 'slot'
-
-    def get_slot(self) -> RuleSlot:
-        """
-        gets the slot for the rule card
-        """
-        pass
+        self._isSlotRevive = mode == 'slot'
 
     def set_active(self, isActive: bool, slot: RuleSlot, **kwargs) -> None:
         super().set_active(isActive, slot)
 
-        if not self.isSlotRevive:
-            slot = self._game.ruleDiscard
+        sourceSlot = slot if self._isSlotRevive else self._game.ruleDiscard
 
-        # TODO: get choice of rule card
-        # TEMPORARY
-        ruleIndex = int(input("Enter index of rule in slot: "))
-        slot.revive(ruleIndex)
+        # TODO: get choice of rule card from GUI input
+        ruleIndex = int(input("Enter index of rule in slot: "))  # TEMPORARY
+        sourceSlot.revive(ruleIndex, slot)
 
 
 class TotalChaosCard(RuleCard):
@@ -155,15 +174,24 @@ class TotalChaosCard(RuleCard):
         if isActive and not self.isActive:
             self.isActive = True
             self.lives = 3
-            for name, rule in self._game.rules:
+            for _, rule in self._game.rules:
                 rule.set_active(True)
 
-            # special rule properties
-            self._game.rules['math'].addition = True
-            self._game.rules['math'].subtraction = True
-            self._game.rules['stacking'].conditions = {'reverse', 'skip', 'draw any'}
-            self._game.rules['attack multiplier'].multiplier = 1
+            # special rules
+            self._game.mathRules.addition = True
+            self._game.mathRules.subtraction = True
+            self._game.stacking.conditions = {'reverse', 'skip', 'draw any'}
+            self._game.attackMultiplier.multiplier = 1
             self._game.totalChaos = True
+
+            # reset rule slots
+            # using Game.discard_slot for animations
+            i: int = 0
+            for _slot in self._game.ruleSlots[:]:
+                if _slot != slot:
+                    self._game.discard_slot(i)
+                else:
+                    i += 1
 
         elif self.isActive:
             self.lives += 1 if isActive else -1
@@ -187,7 +215,7 @@ class TotalChaosCard(RuleCard):
 
 
 class SlotRemover(RuleCard):
-    """Deletes slot and puts it in discard pile"""
+    """Discards the slot the card is played on"""
 
     def __init__(self, game: Game, isActive: bool = False):
         """
@@ -196,11 +224,13 @@ class SlotRemover(RuleCard):
         :param isActive: whether the slot remover starts active
         """
         super().__init__(game, 'slot remover', isActive)
+        self.isActive = False
 
     def set_active(self, isActive: bool, slot: RuleSlot, **kwargs) -> None:
-        super().set_active(isActive, slot)
-        if self.isActive:
-            self._game.ruleDiscard += slot
-            self._game.ruleSlots.remove(slot)
-
-        self.isActive = False
+        """
+        Discard the card's slot
+        :param isActive: whether to discard the slot.
+        :param slot: the slot receiving the card.
+        """
+        if isActive:
+            self._game.discard_slot(slot)
